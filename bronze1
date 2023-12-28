@@ -1,0 +1,261 @@
+import sys
+import math
+
+limits=[(2500,5000),(5000,7500),(7500,10000)]
+creatures = {}
+drones = {}
+radar_blips=[]
+targets= []
+live_creatures = []
+my_scans = []
+my_drone_scans = []
+
+myscore = 0
+foescore = 0
+target_points = 0 # work out what the initil target is and update as fish get chased off screen
+
+
+
+def target_score(drone,x,y):
+
+    #what would be the forecast score after a given target and how many moves away. Take into account oppo drones?
+    scoring_multiple = 100
+    scanning_multiple = 10
+    distance_multiple = 1
+    Emergency_penalty = 1000
+
+    #for each monster would there be a collision
+
+    # for each fish what would be the value
+    #for each oppo drone
+    surface_first_benefit = 0 #what have we both scanned so getting to the surface first gives extra points
+    surface_head_start = 0 # how much closer to the surface am I than my opponent
+
+
+def get_game_inputs():
+    creature_count = int(input())
+    for i in range(creature_count):
+        creature_id, color, _type = [int(j) for j in input().split()]
+        creatures[creature_id]={"color":color,"type":_type,"x":-1,"y":-1,"max_x":100000,"min_x":-1,"max_y":10000,"min_y":-1,"vx":-1,"vy":-1,"seen":False,"fseen":False}
+
+def get_turn_inputs():
+    my_points = int(input())
+    foe_points = int(input())
+
+    my_scan_count = int(input())
+    for i in range(my_scan_count):
+        creature_id = int(input())
+        my_scans.append(creature_id)
+
+    foe_scan_count = int(input())
+    for i in range(foe_scan_count):
+        creature_id = int(input())
+        creatures[creature_id]['fseen']=True
+
+    my_drone_count = int(input())
+    for i in range(my_drone_count):
+        drone_id, drone_x, drone_y, emergency, battery = [int(j) for j in input().split()]
+        drones[drone_id] = {'id':drone_id,'x':drone_x,'y':drone_y,'owner':'me'}
+
+    foe_drone_count = int(input())
+    for i in range(foe_drone_count):
+        drone_id, drone_x, drone_y, emergency, battery = [int(j) for j in input().split()]
+        drones[drone_id] = {'id':drone_id,'x':drone_x,'y':drone_y,'owner':'foe'}
+
+    drone_scan_count = int(input())
+    for i in range(drone_scan_count):
+        drone_id, creature_id = [int(j) for j in input().split()]
+        if drones[drone_id]['owner'] == 'me':
+            creatures[creature_id]['seen']=True
+            my_drone_scans.append((drone_id,creature_id))
+
+    visible_creature_count = int(input())
+    for i in range(visible_creature_count):
+        creature_id, creature_x, creature_y, creature_vx, creature_vy = [int(j) for j in input().split()]
+        creatures[creature_id]["x"]=creature_x
+        creatures[creature_id]['y']=creature_y
+        creatures[creature_id]["vx"]=creature_vx
+        creatures[creature_id]['vy']=creature_vy
+    
+    
+    radar_blips.clear()
+    live_creatures.clear()
+
+    radar_blip_count = int(input())
+    for i in range(radar_blip_count):
+        inputs = input().split()
+        drone_id = int(inputs[0])
+        creature_id = int(inputs[1])
+        radar = inputs[2]
+        radar_blips.append([drone_id,creature_id,radar])
+        live_creatures.append(creature_id)
+
+
+# find the possible location of each creature
+
+# based on previous known location bounds plus current radar
+
+# take previous bounds - add potential movement - crop by current radar
+
+def new_minmax ():
+    # work out the new minx position for all the creatures given the new drone and radar information
+
+    # update based on previous location
+    # crop based on radar
+    # crop based on min max y
+    for rb in radar_blips:
+        old_minx = creatures[rb[1]]['min_x']
+        old_maxx = creatures[rb[1]]['max_x']
+        ref_x = drones[rb[0]]['x']
+        old_miny = creatures[rb[1]]['min_y']
+        old_maxy = creatures[rb[1]]['max_y']
+        ref_y = drones[rb[0]]['y']
+        new_minx= max(old_minx - 200,0)
+        new_maxx= min(old_maxx + 200,10000)
+        new_miny = max(old_miny - 200,0)
+        new_maxy = min(old_maxy + 200,10000)
+        if rb[2][1]=="L":
+                new_minx = min(new_minx,ref_x)
+                new_maxx = min(new_maxx,ref_x)
+        if rb[2][1]=="R":
+                new_minx = max(new_minx,ref_x)
+                new_maxx = max(new_maxx,ref_x)
+        if rb[2][0]=="T":
+                new_miny = min(new_miny,ref_y)
+                new_maxy = min(new_maxy,ref_y)
+        if rb[2][0]=="B":
+                new_miny = max(new_miny,ref_y)
+                new_maxy = max(new_maxy,ref_y)
+
+        creatures[rb[1]]['min_x'] = max(0,new_minx)
+        creatures[rb[1]]['max_x'] = min(10000,new_maxx)
+        creatures[rb[1]]['min_y'] = max(new_miny,limits[creatures[rb[1]]['type']][0])
+        creatures[rb[1]]['max_y'] = min(new_maxy,limits[creatures[rb[1]]['type']][1])
+        #print("Cr:"+str(rb[1])+" "+str(creatures[rb[1]]), file=sys.stderr, flush=True)
+
+
+
+def dist(c,d):
+    mid_x = (creatures[c]['max_x']+creatures[c]['min_x'])/2
+    mid_y = (creatures[c]['max_y']+creatures[c]['min_y'])/2
+    distance =math.sqrt(((mid_x-drones[d]['x'])**2)+((mid_y-drones[d]['y'])**2))
+    return distance
+
+def closest_target1(d2):
+    min_distance = 10000
+    closest_target = "none"
+                
+    for t in targets:
+        if t[1]==d2:
+            if t[2]< min_distance:
+                min_distance = t[2]
+                closest_target = t[0]
+    return closest_target,min_distance
+
+def closest_target2(d2):
+    min_distance = 10000
+    closest_target = "none"
+                
+    for t in targets:
+        if t[1]==d2:
+            if t[2]< min_distance:
+                min_distance = t[2]
+                closest_target = t[0]
+    return closest_target,min_distance
+
+def furthest_target(d):
+    max_distance = 0
+    furthest_target = "none"
+ 
+    for t in targets:
+        if t[1]==d:
+            if t[2]> max_distance:
+                max_distance = t[2]
+                furthest_target = t[0]
+    return furthest_target
+
+def best_target(d):
+    #sort targets for value
+    sorted_targets = sorted(targets, key=lambda x: x[3])
+    new_target = sorted_targets.pop()
+    target_id = new_target[0]
+    target_distance = new_target[2]
+    return target_id,target_distance
+# Score points by scanning valuable fish faster than your opponent.
+
+# create dictionary of creatures
+# id, list of features
+
+# create dictionary of my drones
+
+# id, x,y,emergency, battery, light
+
+# game loop
+
+# phase 1 
+# drop to the right level
+
+# phase 2 - find creatures and report to ship
+
+# start game
+
+get_game_inputs()
+
+# get inputs
+while True:
+    get_turn_inputs()
+# find the positions of all the creatures        
+    new_minmax()
+# find the next target
+    
+    #TODO  need to make targets a list not a dictionary
+
+    for d in drones:
+        if drones[d]['owner']=="me":
+            for c in creatures:
+                if creatures[c]['min_x']!=-1:
+                    if creatures[c]['seen']!=True:
+                        if c in live_creatures:
+                            score = creatures[c]['type']
+                            targets.append([c,d,dist(c,d),score])
+    #print("targets"+ str(targets), file=sys.stderr, flush=True)
+    light=0
+    print("target length =  " + str(len(targets)), file=sys.stderr, flush=True)
+    if len(targets) !=0:
+        dn=0
+        for d in drones:
+            if drones[d]['owner']=='me':
+                if dn == 0:
+                    target,distance = best_target(drones[d]['id'])
+                    if distance <= 2000:
+                        light = 1
+                    print("drone "+str(drones[d]['id'])+ " " +str(target), file=sys.stderr, flush=True)
+                    
+                    target_x = int((creatures[target]['min_x']+creatures[target]['max_x'])/2)
+                    target_y = int((creatures[target]['min_y']+creatures[target]['max_y'])/2)
+                    if len(my_drone_scans)>=2:
+                        target_y = 0
+                    print("MOVE "+str(target_x)+" "+str(target_y)+" " + str(light))
+
+                if dn== 1:
+                    target,distance = best_target(drones[d]['id'])
+                    if distance <= 2000:
+                        light = 1
+                    target_x = int((creatures[target]['min_x']+creatures[target]['max_x'])/2)
+                    target_y = int((creatures[target]['min_y']+creatures[target]['max_y'])/2)
+                    print("drone "+str(drones[d]['id'])+ " " +str(target), file=sys.stderr, flush=True)
+                    print("MOVE "+str(target_x)+" "+str(target_y)+" " + str(light))
+                dn +=1
+    else:
+        for d in drones:
+            if drones[d]['owner']=='me':
+                target_x = drones[d]['x']
+                target_y = 0
+                light = 0
+                print("MOVE "+str(target_x)+" "+str(target_y)+" " + str(light))
+    
+    # tidy up
+    print("clear target list", file=sys.stderr, flush=True)
+    targets.clear()
+    my_drone_scans.clear()
+    
