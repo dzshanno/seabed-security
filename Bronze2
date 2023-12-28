@@ -31,17 +31,18 @@ class Drone(NamedTuple):
     scans: List[int]
     owner: str
 
-shoal: Dict[int, Fish] = {}
+def initialise_game():
+    shoal: Dict[int, Fish] = {}
 
-fish_count = int(input())
-for _ in range(fish_count):
+    fish_count = int(input())
+    for _ in range(fish_count):
    
-    fish_id, color, _type = map(int, input().split())
-    new_fish = Fish(fish_id,Vector(-1,-1),Vector(10000,10000),Vector(0,0),Vector(-1,-1),color,_type)
-    shoal[fish_id] = new_fish
+        fish_id, color, _type = map(int, input().split())
+        new_fish = Fish(fish_id,Vector(-1,-1),Vector(10000,10000),Vector(0,0),Vector(-1,-1),color,_type)
+        shoal[fish_id] = new_fish
 
-# game loop
-while True:
+
+def initialise_loop():
     my_scans: List[int] = []
     foe_scans: List[int] = []
     drone_by_id: Dict[int, Drone] = {}
@@ -100,6 +101,23 @@ while True:
         drone_id = int(drone_id)
         fish_id = int(fish_id)
         my_radar_blips[drone_id].append(RadarBlip(fish_id, dir))
+        
+
+# game initialisation
+
+initialise_game()
+
+
+
+# game loop
+
+
+
+while True:
+    
+    initialise_loop()
+    
+    
         
 
     for drone in my_drones:
