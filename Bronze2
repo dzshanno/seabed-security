@@ -19,7 +19,8 @@ class Fish:
     color: int
     type: int
 
-class Target(NamedTuple):
+@dataclass
+class Target:
     target_id: int
     value: int
     status: str
@@ -157,6 +158,11 @@ def initialise_loop():
         fish_id, fish_x, fish_y, fish_vx, fish_vy = map(int, input().split())
         pos = Vector(fish_x, fish_y)
         speed = Vector(fish_vx, fish_vy)
+        if shoal[fish_id].type == -1 :
+             monsters.append([fish_id,pos,speed])
+             print(f"{len(monsters)} Monsters visible", file=sys.stderr, flush=True)
+             
+            
 
     my_radar_blip_count = int(input())
     for _ in range(my_radar_blip_count):
@@ -195,6 +201,7 @@ while True:
                     if t.value> max_value:
                         max_value = t.value
                         drone_target = t
+                        t.status = 'owned'
         
         if drone_target == "surface":
             target_x = drone.pos.x
