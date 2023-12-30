@@ -9,6 +9,19 @@ class Vector:
     x: int
     y: int
 
+    def __add__(self, value : Vector):
+         output = Vector(self.x+value.x,self.y+value.y)
+         return output
+    def __mul__(self, value):
+         output = Vector(self.x*value,self.y*value)
+         return output
+    def length(self):
+         return math.sqrt((self.x**2)+(self.y**2))
+    def unit(self):
+         length = self.length
+         return Vector(self.x/length,slef.y/length)
+         
+
 @dataclass
 class Fish:
     fish_id: int
@@ -38,6 +51,25 @@ class Drone(NamedTuple):
     battery: int
     scans: List[int]
     owner: str
+
+def dot (a : Vector,b :Vector) -> Vector:
+     output = Vector(a.x*b.x,a.y*b.y)
+     return output
+     
+
+# given the position and speed of two objects 
+# return two position Vectors equal to their locations at closest approach
+def closest_approach(pos1 : Vector,speed1: Vector,pos2: Vector,speed2 : Vector) -> List[Vector]:
+    # move to origin
+    p1 = pos1 - pos1 # (0,0)
+    p2 = pos2 - pos1
+    # move refernce frame so origin is stationary
+    s1 = speed1 - speed1 # (0,0)
+    s2 = speed2 - speed1
+
+
+
+    return (pc1,pc2)
 
 def dist(a,b):
     return math.sqrt((a.x-b.x)**2+(a.y-b.y)**2)
