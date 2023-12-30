@@ -84,8 +84,21 @@ def closest_approach(pos1 : Vector,speed1: Vector,pos2: Vector,speed2 : Vector) 
 # p2(t) = p2 + t*(speed2 - speed1) = p2 + s2
 
 
+# dot product of moving object and perpendicular = 0
+# movi ng object = s2
+# perpendicular = p2 - t*s2
+# dot(s2,(P2-TS2) = 0)
+# s2.x* p2.x - t*s2.x*s2.x + s2.y*p2.y - ts2.y*s2.y = 0
+# s2.x*p2.x + s2.y*2.y = t*(s2.x^2+s2.y^2)
+# so t = (s2.x*p2.x + s2.y*p2.y) / ( s2.x^2 + s2.y^2)
 
-    return (pos1,closest_point)
+# if t<0   
+# so position of 1 = pos 1 + t * speed1
+    t = ((s2.x*p2.x)+(s2,y*p2.y))/(s2.x*s2.x+s2.y*s2.y)
+    cpos1 = Vector(pos1.x+t*speed1.x,pos1.y+t*speed1.y)
+    cpos2 = Vector(pos2.x+t*speed2.x,pos2.y+t*speed2.y)
+    
+    return (cpos1,cpos2)
 
 def dist(a,b):
     return math.sqrt((a.x-b.x)**2+(a.y-b.y)**2)
