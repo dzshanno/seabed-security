@@ -52,10 +52,13 @@ class Drone(NamedTuple):
     scans: List[int]
     owner: str
 
-def dot (a : Vector,b :Vector) -> Vector:
-     output = Vector(a.x*b.x,a.y*b.y)
+def dot (a : Vector,b :Vector):
+     output = (a.x*b.x,a.y*b.y)
      return output
      
+
+    
+
 
 # given the position and speed of two objects 
 # return two position Vectors equal to their locations at closest approach
@@ -66,10 +69,23 @@ def closest_approach(pos1 : Vector,speed1: Vector,pos2: Vector,speed2 : Vector) 
     # move refernce frame so origin is stationary
     s1 = speed1 - speed1 # (0,0)
     s2 = speed2 - speed1
+    
+    closest_point = pos1 + (dot((pos1 - pos2),s2.unit()*s2.unit))
+
+# equation for point 1 in time is pos1 + t*speed1
+# equation for point 2 in time is pos2 + t*speed2
+
+# translating to origin
+# p1(t) = pos1-pos1 + t*speed1 = t*speed1
+# p2(t) = pos2-pos1 + t*speed2 = p2 + t*speed2
+
+# translating so origin is staionary
+# p1(t) = t*speed1 - t*speed1 = 0
+# p2(t) = p2 + t*(speed2 - speed1) = p2 + s2
 
 
 
-    return (pc1,pc2)
+    return (pos1,closest_point)
 
 def dist(a,b):
     return math.sqrt((a.x-b.x)**2+(a.y-b.y)**2)
