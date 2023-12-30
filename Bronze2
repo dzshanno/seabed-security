@@ -252,7 +252,16 @@ while True:
     #create list of targets
     new_targets()
     #for each drone
+
+    # check for monsters
+    
+         
     for drone in my_drones:
+
+        for m in monsters:
+            closest = dist(closest_approach(drone.pos,Vector(0,0),m.pos,m.speed))
+            print(f"monster {m[0]} will come {closest}", file=sys.stderr, flush=True)
+
         max_value =0 
         drone_target = "surface"
         light = 0
