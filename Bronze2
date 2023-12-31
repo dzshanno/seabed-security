@@ -146,7 +146,11 @@ def new_minmax ():
         #crop the possible area by the limits for each type of fish
         shoal[rb.fish_id].minpos = Vector(max(0,new_min.x),max(new_min.y,limits[shoal[rb.fish_id].type][0]))
         shoal[rb.fish_id].maxpos = Vector(min(10000,new_max.x),min(new_max.y,limits[shoal[rb.fish_id].type][1]))
-        
+        #set the exact position if the fish is visible
+        if shoal[rb.fish_id].pos != -1:
+             shoal[rb.fish_id].maxpos = shoal[rb.fish_id].pos
+             shoal[rb.fish_id].minpos = shoal[rb.fish_id].pos
+
 
         #print("Cr:"+str(rb[1])+" "+str(shoal[rb[1]]), file=sys.stderr, flush=True)
 
@@ -165,7 +169,7 @@ foe_scans: List[int] = []
 drone_by_id: Dict[int, Drone] = {}
 my_drones: List[Drone] = []
 foe_drones: List[Drone] = []
-visible_fish: List[Fish] = []
+visible_fish: Dict[int,Fish] = {}
 monsters: List[Fish] = []
 my_radar_blips: List[RadarBlip] = []
 targets: List[Target] = []
@@ -239,11 +243,21 @@ def initialise_loop():
     visible_fish_count = int(input())
     for _ in range(visible_fish_count):
         fish_id, fish_x, fish_y, fish_vx, fish_vy = map(int, input().split())
-        pos = Vector(fish_x, fish_y)
-        speed = Vector(fish_vx, fish_vy)
+        vpos = Vector(fish_x, fish_y)
+        vspeed = Vector(fish_vx, fish_vy)
+        visible_fish[fish_id] = Fish(fish_id,vpos,vpos,vpos,vspeed,shoal[fish_id].color,shoal[fish_id].type)
+        for f in shoal:
+             # if we can see thee fish update the pos and speed, if not reset pos to -1
+            if f in visible_fish:
+                shoal[f].pos=visible_fish[f].pos
+                shoal[f].speed= visible_fish[f].speed
+            else:
+                shoal[f].pos = Vector(-1,-1)
+                shoal[f].speed = Vector(-1,-1)
+
         if shoal[fish_id].type == -1 :
-             monsters.append([fish_id,pos,speed])
-             print(f"{len(monsters)} Monsters visible", file=sys.stderr, flush=True)
+            monsters.append([fish_id,vpos,vspeed])
+            print(f"{len(monsters)} Monsters visible", file=sys.stderr, flush=True)
              
     my_radar_blip_count = int(input())
     for _ in range(my_radar_blip_count):
