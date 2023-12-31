@@ -147,7 +147,7 @@ def new_minmax ():
         shoal[rb.fish_id].minpos = Vector(max(0,new_min.x),max(new_min.y,limits[shoal[rb.fish_id].type][0]))
         shoal[rb.fish_id].maxpos = Vector(min(10000,new_max.x),min(new_max.y,limits[shoal[rb.fish_id].type][1]))
         #set the exact position if the fish is visible
-        if shoal[rb.fish_id].pos != -1:
+        if shoal[rb.fish_id].pos.x != -1:
              shoal[rb.fish_id].maxpos = shoal[rb.fish_id].pos
              shoal[rb.fish_id].minpos = shoal[rb.fish_id].pos
 
@@ -157,6 +157,16 @@ def new_minmax ():
 def current_value(f):
     #set the value of a given fish based on the type and who has already scanned / landed that fish color / type
     return shoal[f].type
+
+def next_move(pos:Vector, target:Vector,speed:int) -> Vector:
+     move = target - pos
+     unit_move = move.unit()
+     next_step = unit_move * speed
+     next_step.x = int(next_step.x)
+     next_step.y = int(next_step.y)
+     move = next_step + pos
+     return move
+
 
 def new_targets():
     for rb in my_radar_blips:
@@ -189,7 +199,6 @@ def initialise_game():
 def initialise_loop():
     my_scans.clear()
     foe_scans.clear()
-    #drone_by_id.clear()
     my_drones.clear()
     foe_drones.clear()
     visible_fish.clear()
@@ -214,15 +223,15 @@ def initialise_loop():
     my_drone_count = int(input())
     for _ in range(my_drone_count):
         drone_id, drone_x, drone_y, emergency, battery = map(int, input().split())
-        pos = Vector(drone_x, drone_y)
+        dpos = Vector(drone_x, drone_y)
         
         #find the old position of the drone if we know it to use to calculate the drone speed
         if drone_id in drone_by_id:
              old_pos = drone_by_id[drone_id].pos
         else:
-             old_pos = Vector(0,0)
+             old_pos = dpos
         
-        drone = Drone(drone_id, pos, emergency == '1', battery, [],"me",pos-old_pos)
+        drone = Drone(drone_id, dpos, emergency == '1', battery, [],"me",dpos-old_pos)
 
         drone_by_id[drone_id] = drone
         my_drones.append(drone)
@@ -265,8 +274,6 @@ def initialise_loop():
         drone_id = int(drone_id)
         fish_id = int(fish_id)
         my_radar_blips.append(RadarBlip(drone_id,fish_id,dir))
-        if fish_id == 8:
-            print(f"radar blip for 8 = {dir}", file=sys.stderr, flush=True)
             
         
 
@@ -316,10 +323,11 @@ while True:
         else:
             target_x = int((shoal[drone_target.target_id].maxpos.x+shoal[drone_target.target_id].minpos.x)/2)
             target_y = int((shoal[drone_target.target_id].maxpos.y+shoal[drone_target.target_id].minpos.y)/2)
-            if dist(drone.pos,shoal[drone_target.target_id].pos)<2000 and len(monsters())==0:
-                light = 1
+            if dist(drone.pos,shoal[drone_target.target_id].pos)<2000 and len(monsters)==0:
+                light = 1   
             else:
                 light = 0
-            print(f"Next Move for Drone {drone.drone_id}: {target_x} {target_y} towards {drone_target.target_id} at depth {shoal[drone_target.target_id].minpos.y} to {shoal[drone_target.target_id].maxpos.y}", file=sys.stderr, flush=True)
+            n_move = next_move(drone.pos,Vector(target_x,target_y),100)
+            print(f"Next Move for Drone {drone.drone_id}: {n_move.x} {n_move.y} towards {drone_target.target_id} at depth {shoal[drone_target.target_id].minpos.y} to {shoal[drone_target.target_id].maxpos.y}", file=sys.stderr, flush=True)
         
-        print(f"MOVE {target_x} {target_y} {light}")
+        print(f"MOVE {n_move.x} {n_move.y} {light} {str(drone.speed)}")
