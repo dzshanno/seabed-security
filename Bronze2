@@ -8,7 +8,6 @@ from dataclasses import dataclass
 class Vector:
     x: int
     y: int
-
     def __str__(self):
          output = "(x:"+str(self.x)+",y:"+str(self.y)+")"
          return output
@@ -64,14 +63,17 @@ class RadarBlip:
     fish_id: int
     dir: str
 
-class Drone(NamedTuple):
-    drone_id: int
-    pos: Vector
-    emergency: bool
-    battery: int
-    scans: List[int]
-    owner: str
-    speed: Vector = Vector(0,0)
+class Drone:
+    def __init__ (self,drone_id:int, pos:Vector, emergency: bool,battery: int,scans: List[int],owner: str,speed: Vector = Vector(0,0),avoid_counter: int = 0):
+        self.drone_id = drone_id
+        self.pos = pos
+        self.emergency = emergency
+        self.battery = battery
+        self.scans = scans
+        self.owner = owner
+        self.speed = speed
+        self.avoid_counter = avoid_counter
+
 
 def dot (a : Vector,b :Vector):
      output = (a.x*b.x,a.y*b.y)
@@ -205,7 +207,8 @@ def best_speed(d:Drone) -> int:
      return bspeed
 
 def closest_monster(d:Drone):
-     prox = 10000
+     prox = 100000
+     cm = ''
      for m in monsters:
           if dist(m[1],d.pos)<prox:
                prox = dist(m[1],d.pos)
@@ -343,9 +346,7 @@ while True:
     # check for monsters
     
          
-    for drone in my_drones:
-
-       
+    for drone in my_drones: 
         max_value =0 
         drone_target = "surface"
         light = 0
@@ -354,35 +355,40 @@ while True:
                 if t.target_id not in drone_by_id[drone.drone_id].scans:
                     if t.value> max_value:
                         if monsters_in_way(drone,shoal[t.target_id].centre_pos()-drone.pos):
-                            print(f"Monster {m[0]} in way for drone {d.drone_id} to target {t.target_id}", file=sys.stderr, flush=True)
+                            print(f"Monster in way for drone {drone.drone_id} to target {t.target_id}", file=sys.stderr, flush=True)
                         else:
                             max_value = t.value
                             drone_target = t
                             t.status = 'owned'
+                            
         if len(monsters) !=0:
             for m in monsters:
                 ca = closest_approach(drone.pos,drone.speed,m[1],m[2])
                 closest = dist(ca[0],ca[1])
-                print(f"monster {m[0]} will come {int(closest)} at {ca[0]} {ca[1]} after {int(ca[2])} turns", file=sys.stderr, flush=True)
-
-                if closest<1000 and ca[2]>=0:
+                
+                if (closest<1000 and ca[2]>=0) or (dist(drone.pos,m[1])<1000):
+                    print(f"monster {m[0]} will come {int(closest)} at {ca[0]} {ca[1]} after {int(ca[2])} turns", file=sys.stderr, flush=True)
                     drone_target = "avoid monsters"
-        
-
+                    drone.avoid_counter = 5
+            cm = closest_monster(drone)
+            #dm is driection to closest monster
+            dm = shoal[cm].pos - drone.pos
+            avoid_dir = ((dm*-1).unit())*600
+        if len(drone_by_id[drone.drone_id].scans)>1:
+            drone_target ="surface"
 
         if drone_target == "surface":
             target_x = drone.pos.x
             target_y = 0
             print(f"Next Move for Drone {drone.drone_id}: {target_x} {target_y} towards Surface", file=sys.stderr, flush=True)
-        elif drone_target == "avoid monsters":
-             cm = closest_monster(drone)
-             #dm is driection to closest monster
-             dm = shoal[cm].pos - drone.pos
-             flee = (dm * -1) + drone.pos
+        elif drone.avoid_counter > 0:
+             
+             flee = avoid_dir + drone.pos
              target_x = flee.x
              target_y = flee.y
-             print(f"Avoiding Monster {cm}", file=sys.stderr, flush=True)
-        
+             print(f"Avoiding Monster {cm}. Drone counter ={drone.avoid_counter}", file=sys.stderr, flush=True)
+             drone.avoid_counter -= 1
+
 
         else:
             target_x = int((shoal[drone_target.target_id].maxpos.x+shoal[drone_target.target_id].minpos.x)/2)
