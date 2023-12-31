@@ -224,7 +224,6 @@ limits=[(2500,5000),(5000,7500),(7500,10000)]
 my_scans: List[int] = []
 foe_scans: List[int] = []
 drone_by_id: Dict[int, Drone] = {}
-my_drones: List[Drone] = []
 foe_drones: List[Drone] = []
 visible_fish: Dict[int,Fish] = {}
 monsters: List[Fish] = []
@@ -246,7 +245,6 @@ def initialise_game():
 def initialise_loop():
     my_scans.clear()
     foe_scans.clear()
-    my_drones.clear()
     foe_drones.clear()
     visible_fish.clear()
     monsters.clear()
@@ -277,11 +275,13 @@ def initialise_loop():
              old_pos = drone_by_id[drone_id].pos
         else:
              old_pos = dpos
-        
-        drone = Drone(drone_id, dpos, emergency == '1', battery, [],"me",dpos-old_pos)
+             
+        drone_by_id[drone_id].pos = dpos
+        drone_by_id[drone_id].emergency = (emergency == '1')
+        drone_by_id[drone_id].battery = battery
+        drone_by_id[drone_id].scans = []
+        drone_by_id[drone_id].speed = dpos - old_pos
 
-        drone_by_id[drone_id] = drone
-        my_drones.append(drone)
 
     foe_drone_count = int(input())
     for _ in range(foe_drone_count):
@@ -346,57 +346,61 @@ while True:
     # check for monsters
     
          
-    for drone in my_drones: 
-        max_value =0 
-        drone_target = "surface"
-        light = 0
-        for t in targets:
-            if t.status != "owned":
-                if t.target_id not in drone_by_id[drone.drone_id].scans:
-                    if t.value> max_value:
-                        if monsters_in_way(drone,shoal[t.target_id].centre_pos()-drone.pos):
-                            print(f"Monster in way for drone {drone.drone_id} to target {t.target_id}", file=sys.stderr, flush=True)
-                        else:
-                            max_value = t.value
-                            drone_target = t
-                            t.status = 'owned'
+    for drone in drone_by_id:
+        if drone_by_id[drone].owner == "me":
+            max_value =0 
+            drone_target = "surface"
+            light = 0
+            for t in targets:
+                if t.status != "owned":
+                    if t.target_id not in drone_by_id[drone].scans:
+                        if t.value> max_value:
+                            if monsters_in_way(drone_by_id[drone],shoal[t.target_id].centre_pos()-drone_by_id[drone].pos):
+                                pass
+                                #print(f"Monster in way for drone {drone.drone_id} to target {t.target_id}", file=sys.stderr, flush=True)
+                            else:
+                                max_value = t.value
+                                drone_target = t
+                                print(f"Drone {drone} heading for {t.target_id}", file=sys.stderr, flush=True)
                             
-        if len(monsters) !=0:
-            for m in monsters:
-                ca = closest_approach(drone.pos,drone.speed,m[1],m[2])
-                closest = dist(ca[0],ca[1])
+                                t.status = 'owned'
+                                
+            if len(monsters) !=0:
+                for m in monsters:
+                    ca = closest_approach(drone_by_id[drone].pos,drone_by_id[drone].speed,m[1],m[2])
+                    closest = dist(ca[0],ca[1])
+                    
+                    if (closest<1000 and ca[2]>=0) or (dist(drone_by_id[drone].pos,m[1])<1000):
+                        print(f"monster {m[0]} will come {int(closest)} at {ca[0]} {ca[1]} after {int(ca[2])} turns", file=sys.stderr, flush=True)
+                        drone_target = "avoid monsters"
+                        drone_by_id[drone].avoid_counter = 5
+                cm = closest_monster(drone_by_id[drone])
+                #dm is driection to closest monster
+                dm = shoal[cm].pos - drone_by_id[drone].pos
+                avoid_dir = ((dm*-1).unit())*600
+            if len(drone_by_id[drone].scans)>1:
+                drone_target ="surface"
+
+            if drone_target == "surface":
+                target_x = drone_by_id[drone].pos.x
+                target_y = 0
+                print(f"Next Move for Drone {drone}: {target_x} {target_y} towards Surface", file=sys.stderr, flush=True)
+            elif drone_by_id[drone].avoid_counter > 0:
                 
-                if (closest<1000 and ca[2]>=0) or (dist(drone.pos,m[1])<1000):
-                    print(f"monster {m[0]} will come {int(closest)} at {ca[0]} {ca[1]} after {int(ca[2])} turns", file=sys.stderr, flush=True)
-                    drone_target = "avoid monsters"
-                    drone.avoid_counter = 5
-            cm = closest_monster(drone)
-            #dm is driection to closest monster
-            dm = shoal[cm].pos - drone.pos
-            avoid_dir = ((dm*-1).unit())*600
-        if len(drone_by_id[drone.drone_id].scans)>1:
-            drone_target ="surface"
-
-        if drone_target == "surface":
-            target_x = drone.pos.x
-            target_y = 0
-            print(f"Next Move for Drone {drone.drone_id}: {target_x} {target_y} towards Surface", file=sys.stderr, flush=True)
-        elif drone.avoid_counter > 0:
-             
-             flee = avoid_dir + drone.pos
-             target_x = flee.x
-             target_y = flee.y
-             print(f"Avoiding Monster {cm}. Drone counter ={drone.avoid_counter}", file=sys.stderr, flush=True)
-             drone.avoid_counter -= 1
+                flee = avoid_dir + drone_by_id[drone].pos
+                target_x = flee.x
+                target_y = flee.y
+                print(f"Avoiding Monster {cm}. Drone counter ={drone_by_id[drone].avoid_counter}", file=sys.stderr, flush=True)
+                drone_by_id[drone].avoid_counter -= 1
 
 
-        else:
-            target_x = int((shoal[drone_target.target_id].maxpos.x+shoal[drone_target.target_id].minpos.x)/2)
-            target_y = int((shoal[drone_target.target_id].maxpos.y+shoal[drone_target.target_id].minpos.y)/2)
-            if dist(drone.pos,shoal[drone_target.target_id].pos)<2000 and len(monsters)==0:
-                light = 1   
             else:
-                light = 0
-        n_move = next_move(drone.pos,Vector(target_x,target_y),best_speed(drone))
-        
-        print(f"MOVE {n_move.x} {n_move.y} {light} {str(drone.speed)}")
+                target_x = int((shoal[drone_target.target_id].maxpos.x+shoal[drone_target.target_id].minpos.x)/2)
+                target_y = int((shoal[drone_target.target_id].maxpos.y+shoal[drone_target.target_id].minpos.y)/2)
+                if dist(drone_by_id[drone].pos,shoal[drone_target.target_id].pos)<2000:
+                    light = 1   
+                else:
+                    light = 0
+            n_move = next_move(drone_by_id[drone].pos,Vector(target_x,target_y),best_speed(drone_by_id[drone]))
+            
+            print(f"MOVE {n_move.x} {n_move.y} {light} {str(drone_by_id[drone].speed)}")
