@@ -21,8 +21,11 @@ class Vector:
     def __mul__(self, value):
          output = Vector(self.x*value,self.y*value)
          return output
-    def __div__(self, other):
-         output= Vector(self.x/other,self.y/other)
+    def __div__(self, value):
+         output= Vector(self.x/value,self.y/value)
+         return output
+    def __truediv__(self, value):
+         output= Vector(self.x/value,self.y/value)
          return output
     def length(self):
          return math.sqrt((self.x**2)+(self.y**2))
@@ -43,6 +46,11 @@ class Fish:
     speed: Vector
     color: int
     type: int
+
+    def centre_pos(self):
+         centre_pos = (self.maxpos+self.minpos)/2
+         return centre_pos
+
 
 @dataclass
 class Target:
@@ -109,8 +117,13 @@ def closest_approach(pos1 : Vector,speed1: Vector,pos2: Vector,speed2 : Vector) 
         t=0
     else:
         t = -1* ((s2.x*p2.x)+(s2.y*p2.y))/(s2.x*s2.x+s2.y*s2.y)
-    cpos1 = Vector(int(pos1.x+(t*speed1.x)),int(pos1.y+(t*speed1.y)))
-    cpos2 = Vector(int(pos2.x+(t*speed2.x)),int(pos2.y+(t*speed2.y)))
+
+    if t>0:
+        cpos1 = Vector(int(pos1.x+(t*speed1.x)),int(pos1.y+(t*speed1.y)))
+        cpos2 = Vector(int(pos2.x+(t*speed2.x)),int(pos2.y+(t*speed2.y)))
+    if t<=0:
+        cpos1 = pos1
+        cpos2 = pos2
     
     return (cpos1,cpos2,t)
 
@@ -118,6 +131,18 @@ def closest_test():
      print(f"testing closest for 0,0 0,0 1000,1000 0,-1", file=sys.stderr, flush=True)
      ca = closest_approach(Vector(0,0),Vector(0,0),Vector(1000,1000),Vector(0,-1))
      print(f"{ca}", file=sys.stderr, flush=True)
+
+def monsters_in_way(d:Drone,dir:Vector) ->bool:
+     trouble = False
+     for m in monsters:
+        closest_positions = closest_approach(d.pos,dir.unit()*600,m[1],m[2])
+        c_dist = dist(closest_positions[0],closest_positions[1])
+        if c_dist < 700:
+             trouble = True
+             
+     return trouble
+        
+          
 
 def dist(a,b):
     return math.sqrt((a.x-b.x)**2+(a.y-b.y)**2)
@@ -328,9 +353,12 @@ while True:
             if t.status != "owned":
                 if t.target_id not in drone_by_id[drone.drone_id].scans:
                     if t.value> max_value:
-                        max_value = t.value
-                        drone_target = t
-                        t.status = 'owned'
+                        if monsters_in_way(drone,shoal[t.target_id].centre_pos()-drone.pos):
+                            print(f"Monster {m[0]} in way for drone {d.drone_id} to target {t.target_id}", file=sys.stderr, flush=True)
+                        else:
+                            max_value = t.value
+                            drone_target = t
+                            t.status = 'owned'
         if len(monsters) !=0:
             for m in monsters:
                 ca = closest_approach(drone.pos,drone.speed,m[1],m[2])
