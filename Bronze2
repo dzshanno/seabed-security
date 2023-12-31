@@ -2,6 +2,7 @@ import sys,math
 from typing import List, NamedTuple, Dict
 from dataclasses import dataclass
 
+# TODO avoid monsters on way to surface
 
 # Define the data structures as @dataclasses
 @dataclass
@@ -241,6 +242,10 @@ def initialise_game():
         new_fish = Fish(fish_id,Vector(-1,-1),Vector(10000,10000),Vector(0,0),Vector(-1,-1),color,_type)
         shoal[fish_id] = new_fish
 
+    for d in range(4):
+         new_drone = Drone(d,Vector(-1,-1),False,-1,[],'',Vector(-1,-1),0)
+         drone_by_id[d] = new_drone
+
 
 def initialise_loop():
     my_scans.clear()
@@ -275,10 +280,11 @@ def initialise_loop():
              old_pos = drone_by_id[drone_id].pos
         else:
              old_pos = dpos
-             
+
         drone_by_id[drone_id].pos = dpos
         drone_by_id[drone_id].emergency = (emergency == '1')
         drone_by_id[drone_id].battery = battery
+        drone_by_id[drone_id].owner = "me"
         drone_by_id[drone_id].scans = []
         drone_by_id[drone_id].speed = dpos - old_pos
 
@@ -373,12 +379,12 @@ while True:
                     if (closest<1000 and ca[2]>=0) or (dist(drone_by_id[drone].pos,m[1])<1000):
                         print(f"monster {m[0]} will come {int(closest)} at {ca[0]} {ca[1]} after {int(ca[2])} turns", file=sys.stderr, flush=True)
                         drone_target = "avoid monsters"
-                        drone_by_id[drone].avoid_counter = 5
+                        drone_by_id[drone].avoid_counter = 4
                 cm = closest_monster(drone_by_id[drone])
                 #dm is driection to closest monster
                 dm = shoal[cm].pos - drone_by_id[drone].pos
                 avoid_dir = ((dm*-1).unit())*600
-            if len(drone_by_id[drone].scans)>1:
+            if len(drone_by_id[drone].scans)>=3:
                 drone_target ="surface"
 
             if drone_target == "surface":
