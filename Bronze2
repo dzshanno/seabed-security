@@ -9,6 +9,9 @@ class Vector:
     x: int
     y: int
 
+    def __str__(self):
+         output = "(x:"+str(self.x)+",y:"+str(self.y)+")"
+         return output
     def __add__(self, value):
          output = Vector(self.x+value.x,self.y+value.y)
          return output
@@ -99,8 +102,7 @@ def closest_approach(pos1 : Vector,speed1: Vector,pos2: Vector,speed2 : Vector) 
 # s2.x* p2.x + t*s2.x*s2.x + s2.y*p2.y + ts2.y*s2.y = 0
 # s2.x*p2.x + s2.y*2.y = - t*(s2.x^2+s2.y^2)
 # so - t = (s2.x*p2.x + s2.y*p2.y) / ( s2.x^2 + s2.y^2)
-
-# if t<0   
+ 
 # so position of 1 = pos 1 + t * speed1
 
     if (s2.x*s2.x+s2.y*s2.y) == 0:
@@ -110,7 +112,7 @@ def closest_approach(pos1 : Vector,speed1: Vector,pos2: Vector,speed2 : Vector) 
     cpos1 = Vector(int(pos1.x+(t*speed1.x)),int(pos1.y+(t*speed1.y)))
     cpos2 = Vector(int(pos2.x+(t*speed2.x)),int(pos2.y+(t*speed2.y)))
     
-    return (cpos1,cpos2)
+    return (cpos1,cpos2,t)
 
 def closest_test():
      print(f"testing closest for 0,0 0,0 1000,1000 0,-1", file=sys.stderr, flush=True)
@@ -318,11 +320,7 @@ while True:
          
     for drone in my_drones:
 
-        for m in monsters:
-            ca = closest_approach(drone.pos,drone.speed,m[1],m[2])
-            closest = dist(ca[0],ca[1])
-            print(f"monster {m[0]} will come {int(closest)} at {ca[0]} {ca[1]}", file=sys.stderr, flush=True)
-
+       
         max_value =0 
         drone_target = "surface"
         light = 0
@@ -334,7 +332,13 @@ while True:
                         drone_target = t
                         t.status = 'owned'
         if len(monsters) !=0:
-             drone_target = "avoid monsters"
+            for m in monsters:
+                ca = closest_approach(drone.pos,drone.speed,m[1],m[2])
+                closest = dist(ca[0],ca[1])
+                print(f"monster {m[0]} will come {int(closest)} at {ca[0]} {ca[1]} after {int(ca[2])} turns", file=sys.stderr, flush=True)
+
+                if closest<1000 and ca[2]>=0:
+                    drone_target = "avoid monsters"
         
 
 
@@ -344,8 +348,11 @@ while True:
             print(f"Next Move for Drone {drone.drone_id}: {target_x} {target_y} towards Surface", file=sys.stderr, flush=True)
         elif drone_target == "avoid monsters":
              cm = closest_monster(drone)
-             target_x = 0
-             target_y = 0
+             #dm is driection to closest monster
+             dm = shoal[cm].pos - drone.pos
+             flee = (dm * -1) + drone.pos
+             target_x = flee.x
+             target_y = flee.y
              print(f"Avoiding Monster {cm}", file=sys.stderr, flush=True)
         
 
