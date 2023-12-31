@@ -9,17 +9,26 @@ class Vector:
     x: int
     y: int
 
-    def __add__(self, value : Vector):
+    def __add__(self, value):
          output = Vector(self.x+value.x,self.y+value.y)
+         return output
+    def __sub__(self, value):
+         output = Vector(self.x-value.x,self.y-value.y)
          return output
     def __mul__(self, value):
          output = Vector(self.x*value,self.y*value)
          return output
+    def __div__(self, other):
+         output= Vector(self.x/other,self.y/other)
+         return output
     def length(self):
          return math.sqrt((self.x**2)+(self.y**2))
     def unit(self):
-         length = self.length
-         return Vector(self.x/length,slef.y/length)
+         vlength = self.length()
+         if vlength==0:
+            return Vector(0,0)
+         else:
+            return Vector(self.x/vlength,self.y/vlength)
          
 
 @dataclass
@@ -51,6 +60,7 @@ class Drone(NamedTuple):
     battery: int
     scans: List[int]
     owner: str
+    speed: Vector = Vector(0,0)
 
 def dot (a : Vector,b :Vector):
      output = (a.x*b.x,a.y*b.y)
@@ -70,11 +80,11 @@ def closest_approach(pos1 : Vector,speed1: Vector,pos2: Vector,speed2 : Vector) 
     s1 = speed1 - speed1 # (0,0)
     s2 = speed2 - speed1
     
-    closest_point = pos1 + (dot((pos1 - pos2),s2.unit()*s2.unit))
+    #closest_point = pos1 + (s2.unit()*dot((pos1 - pos2),s2.unit()))
 
 # equation for point 1 in time is pos1 + t*speed1
 # equation for point 2 in time is pos2 + t*speed2
-
+    
 # translating to origin
 # p1(t) = pos1-pos1 + t*speed1 = t*speed1
 # p2(t) = pos2-pos1 + t*speed2 = p2 + t*speed2
@@ -94,7 +104,11 @@ def closest_approach(pos1 : Vector,speed1: Vector,pos2: Vector,speed2 : Vector) 
 
 # if t<0   
 # so position of 1 = pos 1 + t * speed1
-    t = ((s2.x*p2.x)+(s2,y*p2.y))/(s2.x*s2.x+s2.y*s2.y)
+
+    if (s2.x*s2.x+s2.y*s2.y) == 0:
+        t=0
+    else:
+        t = ((s2.x*p2.x)+(s2.y*p2.y))/(s2.x*s2.x+s2.y*s2.y)
     cpos1 = Vector(pos1.x+t*speed1.x,pos1.y+t*speed1.y)
     cpos2 = Vector(pos2.x+t*speed2.x,pos2.y+t*speed2.y)
     
@@ -171,7 +185,7 @@ def initialise_game():
 def initialise_loop():
     my_scans.clear()
     foe_scans.clear()
-    drone_by_id.clear()
+    #drone_by_id.clear()
     my_drones.clear()
     foe_drones.clear()
     visible_fish.clear()
@@ -197,7 +211,15 @@ def initialise_loop():
     for _ in range(my_drone_count):
         drone_id, drone_x, drone_y, emergency, battery = map(int, input().split())
         pos = Vector(drone_x, drone_y)
-        drone = Drone(drone_id, pos, emergency == '1', battery, [],"me")
+        
+        #find the old position of the drone if we know it to use to calculate the drone speed
+        if drone_id in drone_by_id:
+             old_pos = drone_by_id[drone_id].pos
+        else:
+             old_pos = Vector(0,0)
+        
+        drone = Drone(drone_id, pos, emergency == '1', battery, [],"me",pos-old_pos)
+
         drone_by_id[drone_id] = drone
         my_drones.append(drone)
 
@@ -205,7 +227,7 @@ def initialise_loop():
     for _ in range(foe_drone_count):
         drone_id, drone_x, drone_y, dead, battery = map(int, input().split())
         pos = Vector(drone_x, drone_y)
-        drone = Drone(drone_id, pos, dead == '1', battery, [],"foe")
+        drone = Drone(drone_id, pos, dead == '1', battery, [],"foe")        
         drone_by_id[drone_id] = drone
         foe_drones.append(drone)
     
@@ -223,8 +245,6 @@ def initialise_loop():
              monsters.append([fish_id,pos,speed])
              print(f"{len(monsters)} Monsters visible", file=sys.stderr, flush=True)
              
-            
-
     my_radar_blip_count = int(input())
     for _ in range(my_radar_blip_count):
         drone_id, fish_id, dir = input().split()
@@ -259,7 +279,8 @@ while True:
     for drone in my_drones:
 
         for m in monsters:
-            closest = dist(closest_approach(drone.pos,Vector(0,0),m.pos,m.speed))
+            ca = closest_approach(drone.pos,drone.speed,m[1],m[2])
+            closest = dist(ca[0],ca[1])
             print(f"monster {m[0]} will come {closest}", file=sys.stderr, flush=True)
 
         max_value =0 
@@ -281,7 +302,7 @@ while True:
         else:
             target_x = int((shoal[drone_target.target_id].maxpos.x+shoal[drone_target.target_id].minpos.x)/2)
             target_y = int((shoal[drone_target.target_id].maxpos.y+shoal[drone_target.target_id].minpos.y)/2)
-            if dist(drone.pos,shoal[drone_target.target_id].pos)<2000:
+            if dist(drone.pos,shoal[drone_target.target_id].pos)<2000 and len(monsters())==0:
                 light = 1
             else:
                 light = 0
