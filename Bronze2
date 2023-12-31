@@ -167,6 +167,13 @@ def next_move(pos:Vector, target:Vector,speed:int) -> Vector:
      move = next_step + pos
      return move
 
+def best_speed(d:Drone) -> int:
+     if d.pos.y<2500:
+          bspeed = 600
+     else:
+          bspeed = 200
+     return bspeed
+
 
 def new_targets():
     for rb in my_radar_blips:
@@ -327,7 +334,7 @@ while True:
                 light = 1   
             else:
                 light = 0
-            n_move = next_move(drone.pos,Vector(target_x,target_y),100)
+            n_move = next_move(drone.pos,Vector(target_x,target_y),best_speed(drone))
             print(f"Next Move for Drone {drone.drone_id}: {n_move.x} {n_move.y} towards {drone_target.target_id} at depth {shoal[drone_target.target_id].minpos.y} to {shoal[drone_target.target_id].maxpos.y}", file=sys.stderr, flush=True)
         
         print(f"MOVE {n_move.x} {n_move.y} {light} {str(drone.speed)}")
