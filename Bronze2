@@ -79,8 +79,6 @@ def closest_approach(pos1 : Vector,speed1: Vector,pos2: Vector,speed2 : Vector) 
     # move refernce frame so origin is stationary
     s1 = speed1 - speed1 # (0,0)
     s2 = speed2 - speed1
-    
-    #closest_point = pos1 + (s2.unit()*dot((pos1 - pos2),s2.unit()))
 
 # equation for point 1 in time is pos1 + t*speed1
 # equation for point 2 in time is pos2 + t*speed2
@@ -95,12 +93,12 @@ def closest_approach(pos1 : Vector,speed1: Vector,pos2: Vector,speed2 : Vector) 
 
 
 # dot product of moving object and perpendicular = 0
-# movi ng object = s2
-# perpendicular = p2 - t*s2
-# dot(s2,(P2-TS2) = 0)
-# s2.x* p2.x - t*s2.x*s2.x + s2.y*p2.y - ts2.y*s2.y = 0
-# s2.x*p2.x + s2.y*2.y = t*(s2.x^2+s2.y^2)
-# so t = (s2.x*p2.x + s2.y*p2.y) / ( s2.x^2 + s2.y^2)
+# moving object = s2
+# perpendicular = p2 + t*s2
+# dot(s2,(p2-t*s2) = 0)
+# s2.x* p2.x + t*s2.x*s2.x + s2.y*p2.y + ts2.y*s2.y = 0
+# s2.x*p2.x + s2.y*2.y = - t*(s2.x^2+s2.y^2)
+# so - t = (s2.x*p2.x + s2.y*p2.y) / ( s2.x^2 + s2.y^2)
 
 # if t<0   
 # so position of 1 = pos 1 + t * speed1
@@ -108,11 +106,16 @@ def closest_approach(pos1 : Vector,speed1: Vector,pos2: Vector,speed2 : Vector) 
     if (s2.x*s2.x+s2.y*s2.y) == 0:
         t=0
     else:
-        t = ((s2.x*p2.x)+(s2.y*p2.y))/(s2.x*s2.x+s2.y*s2.y)
-    cpos1 = Vector(pos1.x+t*speed1.x,pos1.y+t*speed1.y)
-    cpos2 = Vector(pos2.x+t*speed2.x,pos2.y+t*speed2.y)
+        t = -1* ((s2.x*p2.x)+(s2.y*p2.y))/(s2.x*s2.x+s2.y*s2.y)
+    cpos1 = Vector(int(pos1.x+(t*speed1.x)),int(pos1.y+(t*speed1.y)))
+    cpos2 = Vector(int(pos2.x+(t*speed2.x)),int(pos2.y+(t*speed2.y)))
     
     return (cpos1,cpos2)
+
+def closest_test():
+     print(f"testing closest for 0,0 0,0 1000,1000 0,-1", file=sys.stderr, flush=True)
+     ca = closest_approach(Vector(0,0),Vector(0,0),Vector(1000,1000),Vector(0,-1))
+     print(f"{ca}", file=sys.stderr, flush=True)
 
 def dist(a,b):
     return math.sqrt((a.x-b.x)**2+(a.y-b.y)**2)
@@ -171,9 +174,16 @@ def best_speed(d:Drone) -> int:
      if d.pos.y<2500:
           bspeed = 600
      else:
-          bspeed = 200
+          bspeed = 600
      return bspeed
 
+def closest_monster(d:Drone):
+     prox = 10000
+     for m in monsters:
+          if dist(m[1],d.pos)<prox:
+               prox = dist(m[1],d.pos)
+               cm = m[0]
+     return cm
 
 def new_targets():
     for rb in my_radar_blips:
@@ -286,6 +296,8 @@ def initialise_loop():
 
 # game initialisation
 
+closest_test()
+
 initialise_game()
 
 # game loop
@@ -309,7 +321,7 @@ while True:
         for m in monsters:
             ca = closest_approach(drone.pos,drone.speed,m[1],m[2])
             closest = dist(ca[0],ca[1])
-            print(f"monster {m[0]} will come {closest}", file=sys.stderr, flush=True)
+            print(f"monster {m[0]} will come {int(closest)} at {ca[0]} {ca[1]}", file=sys.stderr, flush=True)
 
         max_value =0 
         drone_target = "surface"
@@ -321,12 +333,22 @@ while True:
                         max_value = t.value
                         drone_target = t
                         t.status = 'owned'
+        if len(monsters) !=0:
+             drone_target = "avoid monsters"
         
+
+
         if drone_target == "surface":
             target_x = drone.pos.x
             target_y = 0
             print(f"Next Move for Drone {drone.drone_id}: {target_x} {target_y} towards Surface", file=sys.stderr, flush=True)
-            
+        elif drone_target == "avoid monsters":
+             cm = closest_monster(drone)
+             target_x = 0
+             target_y = 0
+             print(f"Avoiding Monster {cm}", file=sys.stderr, flush=True)
+        
+
         else:
             target_x = int((shoal[drone_target.target_id].maxpos.x+shoal[drone_target.target_id].minpos.x)/2)
             target_y = int((shoal[drone_target.target_id].maxpos.y+shoal[drone_target.target_id].minpos.y)/2)
@@ -334,7 +356,6 @@ while True:
                 light = 1   
             else:
                 light = 0
-            n_move = next_move(drone.pos,Vector(target_x,target_y),best_speed(drone))
-            print(f"Next Move for Drone {drone.drone_id}: {n_move.x} {n_move.y} towards {drone_target.target_id} at depth {shoal[drone_target.target_id].minpos.y} to {shoal[drone_target.target_id].maxpos.y}", file=sys.stderr, flush=True)
+        n_move = next_move(drone.pos,Vector(target_x,target_y),best_speed(drone))
         
         print(f"MOVE {n_move.x} {n_move.y} {light} {str(drone.speed)}")
