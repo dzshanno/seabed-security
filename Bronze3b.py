@@ -2,7 +2,9 @@ import sys,math
 from typing import List, NamedTuple, Dict
 from dataclasses import dataclass
 
-# TODO avoid monsters on way to surface
+# TODO better scoring
+# TODO edge movement if running from monsters
+# TODO find better path past monsters
 
 # Define the data structures as @dataclasses
 @dataclass
@@ -402,6 +404,8 @@ while True:
             elif drone_by_id[drone].avoid_counter>0:
                  target_vector = drone_by_id[drone].avoid_path
                  drone_by_id[drone].avoid_counter -=1
+                 if drone_by_id[drone].pos.y <= 2000:
+                     drone_by_id[drone].avoid_counter = 0
                  print(f"Still Avoid monsters", file=sys.stderr, flush=True)
             else:
                 for t in targets:
