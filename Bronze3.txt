@@ -12,6 +12,9 @@ class Vector:
     def __str__(self):
          output = "(x:"+str(self.x)+",y:"+str(self.y)+")"
          return output
+    def __repr__(self):
+         output = "(x:"+str(self.x)+",y:"+str(self.y)+")"
+         return output
     def __add__(self, value):
          output = Vector(self.x+value.x,self.y+value.y)
          return output
@@ -47,6 +50,10 @@ class Fish:
     color: int
     type: int
 
+    def __str__ (self):
+         output = "id:"+str(self.fish_id)+" pos:"+str(self.pos.x)+","+str(self.pos.y)+" Max:"+str(self.maxpos.x)+","+str(self.maxpos.y)+" Min:"+str(self.minpos.x)+","+str(self.minpos.y)
+         return output
+
     def centre_pos(self):
          centre_pos = (self.maxpos+self.minpos)/2
          return centre_pos
@@ -65,7 +72,7 @@ class RadarBlip:
     dir: str
 
 class Drone:
-    def __init__ (self,drone_id:int, pos:Vector, emergency: bool,battery: int,scans: List[int],owner: str,speed: Vector = Vector(0,0),avoid_counter: int = 0):
+    def __init__ (self,drone_id:int, pos:Vector, emergency: bool,battery: int,scans: List[int],owner: str,speed: Vector = Vector(0,0),avoid_counter: int = 0, avoid_path: Vector=Vector(0,0)):
         self.drone_id = drone_id
         self.pos = pos
         self.emergency = emergency
@@ -74,6 +81,7 @@ class Drone:
         self.owner = owner
         self.speed = speed
         self.avoid_counter = avoid_counter
+        self.avoid_path = avoid_path
 
 
 def dot (a : Vector,b :Vector):
@@ -140,7 +148,7 @@ def monsters_in_way(d:Drone,dir:Vector) ->bool:
      for m in monsters:
         closest_positions = closest_approach(d.pos,dir.unit()*600,m[1],m[2])
         c_dist = dist(closest_positions[0],closest_positions[1])
-        if c_dist < 700:
+        if c_dist < 1000:
              trouble = True
              
      return trouble
@@ -156,36 +164,46 @@ def new_minmax ():
     # update based on previous location
     # crop based on radar
     # crop based on min max y
+
+    for cr in shoal:
+        # enlarge the min max area based on possible creature speed
+        old_min = shoal[cr].minpos
+        old_max = shoal[cr].maxpos
+        #grow the possible area by the maximum speed in each direction
+        new_min= Vector(max(old_min.x - limits[shoal[cr].type+1][2],0),max(old_min.y - limits[shoal[cr].type+1][2],0))
+        new_max= Vector(min(old_max.x + limits[shoal[cr].type+1][2],10000),min(old_max.y + limits[shoal[cr].type+1][2],10000))
+        #crop the possible area by the limits for each type of fish
+        shoal[cr].minpos = Vector(max(0,new_min.x),max(new_min.y,limits[shoal[cr].type+1][0]))
+        shoal[cr].maxpos = Vector(min(10000,new_max.x),min(new_max.y,limits[shoal[cr].type+1][1]))
+         
     for rb in my_radar_blips:
+        # enlarge the min max area based on possible creature speed
         old_min = shoal[rb.fish_id].minpos
         old_max = shoal[rb.fish_id].maxpos
         ref_pos = drone_by_id[rb.drone_id].pos
-        #grow the possible area by the maximum speed in each direction
-        new_min= Vector(max(old_min.x - 200,0),max(old_min.y - 200,0))
-        new_max= Vector(min(old_max.x + 200,10000),min(old_max.y + 200,10000))
+    
         #crop the possible area by the results of the radar
         if rb.dir[1]=="L":
-                new_min.x = min(new_min.x,ref_pos.x)
-                new_max.x = min(new_max.x,ref_pos.x)
+                new_min.x = min(old_min.x,ref_pos.x)
+                new_max.x = min(old_max.x,ref_pos.x)
         if rb.dir[1]=="R":
-                new_min.x = max(new_min.x,ref_pos.x)
-                new_max.x = max(new_max.x,ref_pos.x)
+                new_min.x = max(old_min.x,ref_pos.x)
+                new_max.x = max(old_max.x,ref_pos.x)
         if rb.dir[0]=="T":
-                new_min.y = min(new_min.y,ref_pos.y)
-                new_max.y = min(new_max.y,ref_pos.y)
+                new_min.y = min(old_min.y,ref_pos.y)
+                new_max.y = min(old_max.y,ref_pos.y)
         if rb.dir[0]=="B":
-                new_min.y = max(new_min.y,ref_pos.y)
-                new_max.y = max(new_max.y,ref_pos.y)
+                new_min.y = max(old_min.y,ref_pos.y)
+                new_max.y = max(old_max.y,ref_pos.y)
         #crop the possible area by the limits for each type of fish
-        shoal[rb.fish_id].minpos = Vector(max(0,new_min.x),max(new_min.y,limits[shoal[rb.fish_id].type][0]))
-        shoal[rb.fish_id].maxpos = Vector(min(10000,new_max.x),min(new_max.y,limits[shoal[rb.fish_id].type][1]))
+        shoal[rb.fish_id].minpos = Vector(max(0,new_min.x),max(new_min.y,limits[shoal[rb.fish_id].type+1][0]))
+        shoal[rb.fish_id].maxpos = Vector(min(10000,new_max.x),min(new_max.y,limits[shoal[rb.fish_id].type+1][1]))
         #set the exact position if the fish is visible
         if shoal[rb.fish_id].pos.x != -1:
              shoal[rb.fish_id].maxpos = shoal[rb.fish_id].pos
              shoal[rb.fish_id].minpos = shoal[rb.fish_id].pos
-
-
-        #print("Cr:"+str(rb[1])+" "+str(shoal[rb[1]]), file=sys.stderr, flush=True)
+        if rb.fish_id == 15:
+            print("Cr:"+str(rb.fish_id)+" "+str(shoal[rb.fish_id]), file=sys.stderr, flush=True)
 
 def current_value(f):
     #set the value of a given fish based on the type and who has already scanned / landed that fish color / type
@@ -218,10 +236,11 @@ def closest_monster(d:Drone):
 
 def new_targets():
     for rb in my_radar_blips:
+        if shoal[rb.fish_id].type != -1:
             targets.append(Target(rb.fish_id,current_value(rb.fish_id),"none"))
 
 # global variables and lists
-limits=[(2500,5000),(5000,7500),(7500,10000)]
+limits=[(2500,10000,540),(2500,5000,200),(5000,7500,200),(7500,10000,200)]
 my_scans: List[int] = []
 foe_scans: List[int] = []
 drone_by_id: Dict[int, Drone] = {}
@@ -231,6 +250,7 @@ monsters: List[Fish] = []
 my_radar_blips: List[RadarBlip] = []
 targets: List[Target] = []
 shoal: Dict[int, Fish] = {}
+planned_path = Vector(0,0)
 
 def initialise_game():
     
@@ -255,6 +275,7 @@ def initialise_loop():
     monsters.clear()
     my_radar_blips.clear()
     targets.clear()
+    
     
 
     my_score = int(input())
@@ -347,70 +368,61 @@ while True:
     
     #create list of targets
     new_targets()
-    #for each drone
 
-    # check for monsters
+
+    #for each drone find best target or surface
+
+    #check if there is a monster en route
+
+    #
+
     
-         
+    planned_path = Vector(0,0)
+    speed = 600
     for drone in drone_by_id:
         if drone_by_id[drone].owner == "me":
             max_value =0 
-            drone_target = "surface"
+            target_vector = Vector(0,0)
+            target_fish = -1
             light = 0
-            for t in targets:
-                if t.status != "owned":
-                    if t.target_id not in drone_by_id[drone].scans:
-                        if t.value> max_value:
-                            if monsters_in_way(drone_by_id[drone],shoal[t.target_id].centre_pos()-drone_by_id[drone].pos):
-                                pass
-                                #print(f"Monster in way for drone {drone.drone_id} to target {t.target_id}", file=sys.stderr, flush=True)
-                            else:
-                                max_value = t.value
-                                drone_target = t
-                                print(f"Drone {drone} heading for {t.target_id}", file=sys.stderr, flush=True)
-                            
-                                t.status = 'owned'
-                                
-            if len(monsters) !=0:
-                for m in monsters:
-                    ca = closest_approach(drone_by_id[drone].pos,drone_by_id[drone].speed,m[1],m[2])
-                    closest = dist(ca[0],ca[1])
-                    
-                    if (closest<1000 and ca[2]>=0) or (dist(drone_by_id[drone].pos,m[1])<1000):
-                        print(f"monster {m[0]} will come {int(closest)} at {ca[0]} {ca[1]} after {int(ca[2])} turns", file=sys.stderr, flush=True)
-                        drone_target = "avoid monsters"
-                        drone_by_id[drone].avoid_counter = 4
-                cm = closest_monster(drone_by_id[drone])
-                #dm is driection to closest monster
-                dm = shoal[cm].pos - drone_by_id[drone].pos
-                avoid_dir = ((dm*-1).unit())*600
             if len(drone_by_id[drone].scans)>=3:
-                drone_target ="surface"
+                target_vector = Vector(drone_by_id[drone].pos.x,500)-drone_by_id[drone].pos
+                print(f"surface drop off", file=sys.stderr, flush=True)
+            elif drone_by_id[drone].avoid_counter>0:
+                 target_vector = drone_by_id[drone].avoid_path
+                 drone_by_id[drone].avoid_counter -=1
+                 print(f"Still Avoid monsters", file=sys.stderr, flush=True)
+            else:  
+                for t in targets:
+                    if t.status != "owned":
+                        if t.target_id not in drone_by_id[drone].scans:
+                            if t.value> max_value:
+                                max_value = t.value
+                                target_fish = t.target_id
+                                target_vector = shoal[t.target_id].centre_pos() - drone_by_id[drone].pos
+                                t.status = 'owned'
+                print(f"head for a fish {target_fish} at {shoal[target_fish].centre_pos()} going {target_vector}", file=sys.stderr, flush=True)
+            planned_path = target_vector.unit()*speed
+            # is the target path intercepted by a monster
+            if len(monsters) !=0:
+                closest_approach_min = 100000
+                for m in monsters:
+                    ca = closest_approach(drone_by_id[drone].pos,planned_path,m[1],m[2])
+                    closest = dist(ca[0],ca[1])
+                    if closest < closest_approach_min and ((closest_approach_min<1000 and ca[2]>=0) or (dist(drone_by_id[drone].pos,m[1])<1000)):
+                         closest_approach_min = closest
+                         monster_to_avoid = m
+                         planned_path = (drone_by_id[drone].pos-shoal[m[0]].pos).unit()*speed
+                         drone_by_id[drone].avoid_counter = 4
+                         drone_by_id[drone].avoid_path = planned_path
+                         print(f"Avoid monsters", file=sys.stderr, flush=True)
 
-            if drone_target == "surface":
-                target_x = drone_by_id[drone].pos.x
-                target_y = 0
-                print(f"Next Move for Drone {drone}: {target_x} {target_y} towards Surface", file=sys.stderr, flush=True)
-            elif drone_by_id[drone].avoid_counter > 0:
-                
-                flee = avoid_dir + drone_by_id[drone].pos
-                target_x = flee.x
-                target_y = flee.y
-                print(f"Avoiding Monster {cm}. Drone counter ={drone_by_id[drone].avoid_counter}", file=sys.stderr, flush=True)
-                drone_by_id[drone].avoid_counter -= 1
-                if drone_by_id[drone].pos.y<2500:
-                     drone_by_id[drone].avoid_counter =0
-
-                     
-
-
-            else:
-                target_x = int((shoal[drone_target.target_id].maxpos.x+shoal[drone_target.target_id].minpos.x)/2)
-                target_y = int((shoal[drone_target.target_id].maxpos.y+shoal[drone_target.target_id].minpos.y)/2)
-                if dist(drone_by_id[drone].pos,shoal[drone_target.target_id].pos)<2000:
-                    light = 1   
-                else:
-                    light = 0
-            n_move = next_move(drone_by_id[drone].pos,Vector(target_x,target_y),best_speed(drone_by_id[drone]))
             
-            print(f"MOVE {n_move.x} {n_move.y} {light} {str(drone_by_id[drone].speed)}")
+            if dist(drone_by_id[drone].pos,target_vector)<2000:
+                light = 1   
+            else:
+                light = 0
+            
+            planned_target = planned_path + drone_by_id[drone].pos
+
+            print(f"MOVE {int(planned_target.x)} {int(planned_target.y)} {light} {str(drone_by_id[drone].speed)}")
