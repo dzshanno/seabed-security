@@ -412,7 +412,7 @@ while True:
                     if closest < closest_approach_min and ((closest_approach_min<1000 and ca[2]>=0) or (dist(drone_by_id[drone].pos,m[1])<1000)):
                          closest_approach_min = closest
                          monster_to_avoid = m
-                         drone_by_id[drone].avoid_counter = 4
+                         drone_by_id[drone].avoid_counter = 3
                          planned_path = (drone_by_id[drone].pos-shoal[m[0]].pos).unit()*speed
                          drone_by_id[drone].avoid_path = planned_path
                          print(f"Avoid monsters", file=sys.stderr, flush=True)
