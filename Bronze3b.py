@@ -10,10 +10,10 @@ class Vector:
     x: int
     y: int
     def __str__(self):
-         output = "(x:"+str(self.x)+",y:"+str(self.y)+")"
+         output = "(x:"+str(int(self.x))+",y:"+str(int(self.y))+")"
          return output
     def __repr__(self):
-         output = "(x:"+str(self.x)+",y:"+str(self.y)+")"
+         output = "(x:"+str(int(self.x))+",y:"+str(int(self.y))+")"
          return output
     def __add__(self, value):
          output = Vector(self.x+value.x,self.y+value.y)
@@ -234,6 +234,17 @@ def closest_monster(d:Drone):
                cm = m[0]
      return cm
 
+def closest_fish_dist(d:Drone):
+    prox = 100000
+    for f in shoal:
+        if shoal[f].type != -1:
+            fdist = dist(drone_by_id[d].pos,shoal[f].centre_pos())
+            if fdist<prox:
+                prox = fdist
+    return prox
+
+
+
 def new_targets():
     for rb in my_radar_blips:
         if shoal[rb.fish_id].type != -1:
@@ -392,16 +403,18 @@ while True:
                  target_vector = drone_by_id[drone].avoid_path
                  drone_by_id[drone].avoid_counter -=1
                  print(f"Still Avoid monsters", file=sys.stderr, flush=True)
-            else:  
-                    if t.status != "owned":
+            else:
                 for t in targets:
-                        if t.target_id not in drone_by_id[drone].scans:
-                            if t.value> max_value:
-                                max_value = t.value
-                                target_fish = t.target_id
-                                target_vector = shoal[t.target_id].centre_pos() - drone_by_id[drone].pos
-                                t.status = 'owned'
-                print(f"head for a fish {target_fish} at {shoal[target_fish].centre_pos()} going {target_vector}", file=sys.stderr, flush=True)
+                    if t.status != "owned":
+                        if t.target_id not in my_scans:
+                            if t.target_id not in drone_by_id[drone].scans:
+                                if t.value> max_value:
+                                    max_value = t.value
+                                    target_fish = t.target_id
+                                    target_vector = shoal[t.target_id].centre_pos() - drone_by_id[drone].pos
+                                    t.status = 'owned'
+                if target_fish != -1:
+                    print(f"head for a fish {target_fish} at {shoal[target_fish].centre_pos()} going {target_vector}", file=sys.stderr, flush=True)
             planned_path = target_vector.unit()*speed
             # is the target path intercepted by a monster
             if len(monsters) !=0:
@@ -409,20 +422,23 @@ while True:
                 for m in monsters:
                     ca = closest_approach(drone_by_id[drone].pos,planned_path,m[1],m[2])
                     closest = dist(ca[0],ca[1])
-                    if closest < closest_approach_min and ((closest_approach_min<1000 and ca[2]>=0) or (dist(drone_by_id[drone].pos,m[1])<1000)):
+                    if closest < closest_approach_min and ((closest_approach_min<1000 and ca[2]>=0) or (dist(drone_by_id[drone].pos,m[1])<2000)):
                          closest_approach_min = closest
                          monster_to_avoid = m
                          drone_by_id[drone].avoid_counter = 3
                          planned_path = (drone_by_id[drone].pos-shoal[m[0]].pos).unit()*speed
                          drone_by_id[drone].avoid_path = planned_path
-                         print(f"Avoid monsters", file=sys.stderr, flush=True)
+                         print(f"Avoid monsters {str(planned_path)}", file=sys.stderr, flush=True)
 
             
-            if dist(drone_by_id[drone].pos,target_vector)<2000:
+            if dist(Vector(0,0),target_vector)<2000:
                 light = 1   
             else:
                 light = 0
             
+            if closest_fish_dist(drone)<2000:
+                light = 1
+
             planned_target = planned_path + drone_by_id[drone].pos
 
             print(f"MOVE {int(planned_target.x)} {int(planned_target.y)} {light} {str(drone_by_id[drone].speed)}")
