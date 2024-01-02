@@ -155,9 +155,79 @@ def monsters_in_way(d:Drone,dir:Vector) ->bool:
              trouble = True
              
      return trouble
-        
-          
 
+def my_possible_score() -> int:
+    score_matrix = [[0 for x in range(3)] for y in range(4)]
+    poss_score = 0
+    types = [2,2,2]
+    colors = [2,2,2,2]
+    live_fish = []
+    for rb in my_radar_blips:
+        if rb.fish_id not in live_fish and shoal[rb.fish_id].type != -1 :
+            live_fish.append(rb.fish_id)
+    for cr in shoal:
+        if shoal[cr].type != -1:
+            cr_score = 0
+            cr_type = shoal[cr].type
+            cr_color = shoal[cr].color
+            if cr not in live_fish:
+                cr_score = 0
+                types[cr_type] = 0
+                colors[cr_color] = 0
+            elif cr in foe_scans:
+                cr_score = 1
+                types[cr_type] = min(1,types[cr_type])
+                colors[cr_color] = min(1,types[cr_type])
+            else:
+                cr_score = 2
+                
+            score_matrix[cr_color][cr_type] = cr_score
+
+    for row in range(4):
+        for col in range(3):
+            poss_score += score_matrix[row][col]*(col+1)
+
+    poss_score += sum(types)*4
+    poss_score += sum(colors)*3    
+
+    return poss_score
+          
+def foe_possible_score(oppo_scan:List) -> int:
+    score_matrix = [[0 for x in range(3)] for y in range(4)]
+    poss_score = 0
+    types = [2,2,2]
+    colors = [2,2,2,2]
+    live_fish = []
+    for rb in my_radar_blips:
+        if rb.fish_id not in live_fish and shoal[rb.fish_id].type != -1 :
+            live_fish.append(rb.fish_id)
+    for cr in shoal:
+        if shoal[cr].type != -1:
+            cr_score = 0
+            cr_type = shoal[cr].type
+            cr_color = shoal[cr].color
+            if cr not in live_fish:
+                cr_score = 0
+                types[cr_type] = 0
+                colors[cr_color] = 0
+            elif cr in oppo_scan:
+                cr_score = 1
+                types[cr_type] = min(1,types[cr_type])
+                colors[cr_color] = min(1,types[cr_type])
+            else:
+                cr_score = 2
+                
+            score_matrix[cr_color][cr_type] = cr_score
+
+    for row in range(4):
+        for col in range(3):
+            poss_score += score_matrix[row][col]*(col+1)
+
+    poss_score += sum(types)*4
+    poss_score += sum(colors)*3    
+
+    return poss_score
+          
 def dist(a,b):
     return math.sqrt((a.x-b.x)**2+(a.y-b.y)**2)
 
@@ -257,7 +327,7 @@ def onSegment(p, q, r):
         return True
     return False
 
-def orientation(p, q, r): 
+def orientation(p:Vector, q:Vector, r:Vector): 
     # to find the orientation of an ordered triplet (p,q,r) 
     # function returns the following values: 
     # 0 : Collinear points 
@@ -319,27 +389,31 @@ def doIntersect(p1,q1,p2,q2):
 
 def edge_move(d:Drone, t:Vector) -> Vector:
     
+
+    #TODO refactor to change d from drone to Vector
     # find speed of drone
     dspeed = dist(d.pos,t)
 
     # find intercept with edge at proposed vector
-    right_edge = ((10000,0),(10000,10000))
-    left_edge = ((0,0),(0,10000))
-    top_edge = ((0,0),(10000,0))
-    bottom_edge = ((0,10000),(10000,10000))
+    right_edge = (Vector(100001,-1),Vector(100001,100001))
+    left_edge = (Vector(-1,-1),Vector(-1,10001))
+    top_edge = (Vector(-1,-1),Vector(10001,1))
+    bottom_edge = (Vector(-1,10001),Vector(10001,10001))
     proposed_target = t
-    proposed_move = Vector(0,0)
+    proposed_move = t-d.pos
 
     if doIntersect(right_edge[0],right_edge[1],d.pos,proposed_target):
         #intersects with right edge
         proposed_move.x = 9999-d.pos.x
         proposed_move.y = math.sqrt(dspeed**2-(proposed_move.x)**2)
+        print(f"Avoiding right wall", file=sys.stderr, flush=True)
 
 
     if doIntersect(left_edge[0],left_edge[1],d.pos,proposed_target):
         #intersects with left edge
         proposed_move.x = 1-d.pos.x
         proposed_move.y = math.sqrt(dspeed**2-(proposed_move.x)**2)
+        print(f"Avoiding left wall", file=sys.stderr, flush=True)
 
     if d.pos.y+proposed_move.y>10000:
         proposed_target.y = d.pos.y - proposed_move.y
@@ -348,14 +422,16 @@ def edge_move(d:Drone, t:Vector) -> Vector:
 
     if doIntersect(top_edge[0],top_edge[1],d.pos,proposed_target):
         #intersects with top edge
-        proposed_move.y = 1-d.pos.x
+        proposed_move.y = 1-d.pos.y
         proposed_move.x= math.sqrt(dspeed**2-(proposed_move.y)**2)
+        print(f"Avoiding top", file=sys.stderr, flush=True)
 
 
     if doIntersect(bottom_edge[0],bottom_edge[1],d.pos,proposed_target):
         #intersects with bottom edge
-        proposed_move.y = 9999-d.pos.x
+        proposed_move.y = 9999-d.pos.y
         proposed_move.x = math.sqrt(dspeed**2-(proposed_move.y)**2)
+        print(f"Avoiding bottom", file=sys.stderr, flush=True)
 
     if d.pos.x+proposed_move.x>10000:
         proposed_target.x = d.pos.x - proposed_move.x
@@ -550,8 +626,10 @@ while True:
             elif drone_by_id[drone].avoid_counter>0:
                  target_vector = drone_by_id[drone].avoid_path
                  drone_by_id[drone].avoid_counter -=1
+                 # if you are above the level you can be caught by the monster, stop running away
                  if drone_by_id[drone].pos.y <= 2000:
                      drone_by_id[drone].avoid_counter = 0
+                     target_vector.y=0
                  print(f"Still Avoid monsters", file=sys.stderr, flush=True)
             else:
                 for t in targets:
@@ -590,5 +668,9 @@ while True:
                 light = 1
 
             planned_target = planned_path + drone_by_id[drone].pos
+            planned_target = edge_move(drone_by_id[drone],planned_target)
+            my_max_score = foe_possible_score(foe_scans)
+            foe_max_score = foe_possible_score(my_scans)
+            print(f"possible Score {str(my_max_score)} {str(foe_max_score)}", file=sys.stderr, flush=True)
 
             print(f"MOVE {int(planned_target.x)} {int(planned_target.y)} {light} {str(drone_by_id[drone].speed)}")
