@@ -207,9 +207,26 @@ def new_minmax ():
         if rb.fish_id == 15:
             print("Cr:"+str(rb.fish_id)+" "+str(shoal[rb.fish_id]), file=sys.stderr, flush=True)
 
-def current_value(f):
+def current_fish_value(f):
     #set the value of a given fish based on the type and who has already scanned / landed that fish color / type
-    return shoal[f].type
+    
+    base = shoal[f].type
+    first_available = f not in foe_scans
+    multi_type_available = 0
+    multi_type_first_available = 0
+    multi_color_available = 0
+    multi_color_first_available = 0
+    
+    value = base + first_available*base + multi_type_available*1 + multi_type_first_available*1 + multi_color_first_available + multi_color_available
+    
+    return value
+
+def current_surface_value(d:Drone):
+    surface_value = 0
+    for s in drone_by_id[d].scans:
+        if s not in foe_scans:
+            surface_value += shoal[s].type+1
+    # add check for multi points
 
 def next_move(pos:Vector, target:Vector,speed:int) -> Vector:
      move = target - pos
@@ -250,7 +267,7 @@ def closest_fish_dist(d:Drone):
 def new_targets():
     for rb in my_radar_blips:
         if shoal[rb.fish_id].type != -1:
-            targets.append(Target(rb.fish_id,current_value(rb.fish_id),"none"))
+            targets.append(Target(rb.fish_id,current_fish_value(rb.fish_id),"none"))
 
 # global variables and lists
 limits=[(2500,10000,540),(2500,5000,200),(5000,7500,200),(7500,10000,200)]
@@ -294,11 +311,13 @@ def initialise_loop():
     my_score = int(input())
     foe_score = int(input())
 
+    # fish my drones hae saved
     my_scan_count = int(input())
     for _ in range(my_scan_count):
         fish_id = int(input())
         my_scans.append(fish_id)
 
+    # fish foe's drones have saved
     foe_scan_count = int(input())
     for _ in range(foe_scan_count):
         fish_id = int(input())
