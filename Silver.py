@@ -310,8 +310,14 @@ def new_minmax () ->None:
         if shoal[rb.fish_id].pos.x != -1:
              shoal[rb.fish_id].maxpos = shoal[rb.fish_id].pos
              shoal[rb.fish_id].minpos = shoal[rb.fish_id].pos
-            
-def current_value(f):
+
+def show_game_state():
+    print(f"************************************", file=sys.stderr, flush=True)
+    for d in drone_by_id:
+        print(f"Drone {d}", file=sys.stderr, flush=True)
+        print(f"************************************", file=sys.stderr, flush=True)
+                       
+def currentvalue(f):
     #set the value of a given fish based on the type and who has already scanned / landed that fish color / type
     base_value = shoal[f].type
     fish_value = base_value
@@ -705,7 +711,7 @@ while True:
     #check if there is a monster en route
 
     #
-
+    show_game_state()
     
     planned_path = Vector(0,0)
     speed = 600
