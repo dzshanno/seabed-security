@@ -82,9 +82,17 @@ class Fish:
         centre_pos= (self.curr_max_pos+self.curr_min_pos)/2
         return centre_pos
     
+    def prev_pos(self) -> Vector:
+        prev_pos = (self.prev_max_pos+self.prev_min_pos)/2
+        return prev_pos
+    
     def curr_pos(self) -> Vector:
         curr_pos = (self.curr_max_pos+self.curr_min_pos)/2
         return curr_pos
+    
+    def next_pos(self) -> Vector:
+        next_pos = (self.next_max_pos+self.next_min_pos)/2
+        return next_pos
 
 
 @dataclass
@@ -267,7 +275,7 @@ def foe_possible_score(oppo_scan:List) -> int:
 
     return poss_score    
 
-def new_minmax () ->None:
+def update_fish () ->None:
     # work out the new minx position for all the shoal given the new drone and radar information
 
     # update based on previous location
@@ -276,9 +284,11 @@ def new_minmax () ->None:
     # crop based on foe drone seeing the fish
 
     for cr in shoal:
+        
         # enlarge the min max area based on possible creature speed
         shoal[cr].prev_min_pos = shoal[cr].curr_min_pos
         shoal[cr].prev_max_pos = shoal[cr].curr_max_pos
+        shoal[cr].prev_speed = shoal[cr].curr_speed
         
         #crop the possible area by the limits for each type of fish - held in the limits list
         shoal[cr].curr_min_pos = Vector(max(0,shoal[cr].curr_min_pos.x),max(shoal[cr].curr_min_pos.y,limits[shoal[cr].type+1][0]))
@@ -303,8 +313,6 @@ def new_minmax () ->None:
         curr_min_pos = shoal[rb.fish_id].curr_min_pos
         curr_max_pos = shoal[rb.fish_id].curr_max_pos
         ref_pos = drone_by_id[rb.drone_id].pos
-        if rb.fish_id == 14:
-            print(f"fish 14 is {rb.dir}", file=sys.stderr, flush=True)
         #crop the possible area by the results of the radar
         if rb.dir[1]=="L":
                 curr_min_pos.x = min(curr_min_pos.x,ref_pos.x)
@@ -318,10 +326,12 @@ def new_minmax () ->None:
         if rb.dir[0]=="B":
                 curr_min_pos.y = max(curr_min_pos.y,ref_pos.y)
                 curr_max_pos.y = max(curr_max_pos.y,ref_pos.y)
-        #crop the possible area by the limits for each type of fish
-        shoal[rb.fish_id].curr_min_pos = Vector(max(0,curr_min_pos.x),max(curr_min_pos.y,limits[shoal[rb.fish_id].type+1][0]))
-        shoal[rb.fish_id].maxpos = Vector(min(10000,curr_max_pos.x),min(curr_max_pos.y,limits[shoal[rb.fish_id].type+1][1]))
         
+        #crop the possible area by the limits for each type of fish
+        
+        shoal[rb.fish_id].curr_min_pos = Vector(max(0,curr_min_pos.x),max(curr_min_pos.y,limits[shoal[rb.fish_id].type+1][0]))
+        shoal[rb.fish_id].curr_max_pos = Vector(min(10000,curr_max_pos.x),min(curr_max_pos.y,limits[shoal[rb.fish_id].type+1][1]))
+        shoal[rb.fish_id].curr_speed = shoal[rb.fish_id].curr_pos()-shoal[rb.fish_id].prev_pos()
         
 
 def end_of_turn_positions(shoal:Dict[int,Fish]):
@@ -360,7 +370,8 @@ def end_of_turn_positions(shoal:Dict[int,Fish]):
             
         if creature.type in (0,1,2):
             #use current position and speed to predict next position
-            pass
+            creature.next_max_pos = creature.curr_max_pos + creature.curr_speed
+            creature.next_min_pos = creature.curr_min_pos + creature.curr_speed
         
 
 
@@ -754,7 +765,7 @@ while True:
     initialise_loop()
     
     #update current position information based on radar and known/estimated 
-    new_minmax()
+    update_fish()
     
     #forecast the position of fish, drones and monsters at the end of the turn
     end_of_turn_positions(shoal)
@@ -782,7 +793,7 @@ while True:
 
     for drone in drone_by_id:
         if drone_by_id[drone].owner == "me":
-            max_value =0 
+            max_value =-1000000 
             target_vector = Vector(0,0)
             target_fish = -1
             light = 0
@@ -798,16 +809,16 @@ while True:
                         if t.target_id not in my_scans:
                             if t.target_id not in drone_by_id[drone].scans:
                                 #distance to target
-                                targetd = dist(drone_by_id[drone].pos,shoal[t.target_id].centre_pos())
-                                target_value -= targetd/5000
-                                target_value += t.value
+                                targetd = dist(drone_by_id[drone].pos,shoal[t.target_id].next_pos())
+                                target_value -= targetd
+                                #target_value += t.value
                                 if target_value> max_value: 
                                     max_value = target_value
                                     target_fish = t.target_id
-                                    target_vector = shoal[t.target_id].centre_pos() - drone_by_id[drone].pos
+                                    target_vector = shoal[t.target_id].next_pos() - drone_by_id[drone].pos
                                     t.status = 'owned'
                 if target_fish != -1:
-                    drone_by_id[drone].status = "heading for fish " + str(target_fish) + " at " + str(shoal[target_fish].centre_pos())+" min:"+str(shoal[target_fish].curr_min_pos.x)+" max:"+str(shoal[target_fish].curr_max_pos.x)
+                    drone_by_id[drone].status = "heading for fish " + str(target_fish) + " at " + str(shoal[target_fish].next_pos())+" min:"+str(shoal[target_fish].next_min_pos.x)+" max:"+str(shoal[target_fish].next_max_pos.x)
             planned_path = target_vector.unit()*speed
             # is the target path intercepted by a monster
                         
@@ -820,7 +831,7 @@ while True:
                 light = 0
 
             planned_target = planned_path + drone_by_id[drone].pos
-            planned_target = edge_move(drone_by_id[drone],planned_target)
+            #planned_target = edge_move(drone_by_id[drone],planned_target)
             my_max_score = foe_possible_score(foe_scans)
             foe_max_score = foe_possible_score(my_scans)
             my_surface_value = surface_value(drone)
